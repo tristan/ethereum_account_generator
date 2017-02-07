@@ -1,0 +1,11 @@
+[package]
+
+name = "create_account"
+version = "0.0.1"
+authors = [ "Tristan King <tristan.king@gmail.com>" ]
+
+[dependencies]
+tiny-keccak = "1.1"
+rand = "0.3"
+secp256k1 = "0.6.0"
+time = "0.1"

@@ -11,6 +11,7 @@ use secp256k1::Secp256k1;
 use time::get_time;
 use std::fmt::Write;
 use std::sync::mpsc::channel;
+use std::env;
 
 fn main() {
 
@@ -21,11 +22,55 @@ fn main() {
 
     let threads = 4;
 
+    let hexstr = env::args().nth(1).unwrap();
+
+    let mut byte = 0u8;
+    let mut i = 0;
+    let mut vec = Vec::new();
+    for chr in hexstr.chars() {
+        if i == 0 {
+            if chr == '0' {
+                i += 1;
+                continue;
+            } else {
+                panic!("Invalid Hex String!");
+            }
+        }
+        if i == 1 {
+            if chr == 'x' {
+                i += 1;
+                continue;
+            } else {
+                panic!("Invalid Hex String!");
+            }
+        }
+        byte += match chr.to_digit(16) {
+            Some(num) => (num as u8) * match i % 2 {
+                1 => 1,
+                _ => 16
+            },
+            None => panic!("Invalid Hex String!")
+        };
+        if i % 2 == 1 {
+            vec.push(byte);
+            byte = 0;
+        }
+        i += 1;
+    }
+    let use_last_byte = if i % 2 == 1 {
+        true
+    } else {
+        false
+    };
+
     for _ in 0..threads {
         let iter_tx = iter_tx.clone();
         let done_tx = done_tx.clone();
+        let vec = vec.clone();
+        let last_byte = byte;
         thread::spawn(move || {
 
+            let start = vec.as_slice();
             let context = Secp256k1::new();
 
             let mut rng = thread_rng();
@@ -44,7 +89,8 @@ fn main() {
                 let mut res: [u8; 32] = [0; 32];
                 sha3.finalize(&mut res);
 
-                if res[12] == 0x7E && res[13] == 0x57 && res[14] == 0 {
+
+                if res[12..].starts_with(start) && (!use_last_byte || (res[12+start.len()] >= last_byte && res[12+start.len()] <= last_byte + 15)) {
                     let mut s = String::new();
                     write!(&mut s, "Private Key: 0x").unwrap();
                     for &byte in &privkey[..] {
